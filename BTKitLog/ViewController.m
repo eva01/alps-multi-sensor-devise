@@ -374,7 +374,6 @@
 - (void)peripheral:(CBPeripheral *)aPeripheral didDiscoverServices:(NSError *)error {
     
     if (error) {
-        
         NSLog(@"Error discovering services: %@", [error localizedDescription]);
         return;
     }
@@ -398,7 +397,6 @@
 - (void)peripheral:(CBPeripheral *)aPeripheral didDiscoverCharacteristicsForService:(CBService *)service error:(NSError *)error {
     
     if (error) {
-        
         NSLog(@"chara error : %@", [error localizedDescription]);
         return;
     }
@@ -469,7 +467,6 @@
 //  Bluetoothデータ更新時の処理
 // ------------------------------------------------------------------------
 - (void)peripheral:(CBPeripheral *)aPeripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
-    NSLog(@"\n");
     
     if (error) {
         
@@ -477,6 +474,18 @@
         return;
     }
     
+    // 接続頻度を緩和
+    NSDate *time = [NSDate date];
+    NSDateFormatter *fmt = [[NSDateFormatter alloc] init];
+    fmt.dateFormat = @"ss.S";
+    NSString *currentSecond = [fmt stringFromDate:time];
+    NSLog(@"currentSecond: %@", currentSecond);
+    if ([currentSecond isEqual: lastSecond]) {
+        lastSecond = currentSecond;
+        return;
+    }
+    lastSecond = currentSecond;
+
     
     // 設定したキャラクタリスティックと一致し、長さが１以上の場合
     if ([characteristic.UUID isEqual:[CBUUID UUIDWithString:SENSOR_CHARACTERISTIC_UUID]] && characteristic.value.length > 0) {

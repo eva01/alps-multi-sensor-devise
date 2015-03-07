@@ -52,6 +52,9 @@
     // ファイル名表示用のラベル
     __weak IBOutlet UILabel *lblLogFileName;
     
+    // sleep
+    NSString *lastSecond;
+    
 }
 
 @end
