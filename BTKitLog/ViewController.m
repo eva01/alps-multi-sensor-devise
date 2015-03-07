@@ -35,6 +35,12 @@
 // キャラクタリスティックUUID
 #define SENSOR_CHARACTERISTIC_UUID  @"38704154-9A8C-8F8F-4449-89C0AF8A0402"
 
+// socket
+#import <CoreFoundation/CoreFoundation.h>
+#import <sys/socket.h>
+#import <netinet/in.h>
+#import <arpa/inet.h>
+
 @interface ViewController ()
 @end
 
@@ -630,6 +636,9 @@
         // ログデータ書き込み処理
         [self LogOutput];
 
+        // darumaサーバへUDPで送信
+        [self udp];
+        
         // darumaサーバへ送信
         [self sendToDaruma];
         
@@ -700,6 +709,28 @@
     }
 }
 
+- (void)udp {
+    CFSocketRef socket = CFSocketCreate(NULL, PF_INET, SOCK_DGRAM, IPPROTO_UDP, kCFSocketNoCallBack, NULL, NULL);
+    
+    struct sockaddr_in addr;
+    addr.sin_len = sizeof(struct sockaddr_in);
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    addr.sin_port = htons(10000);
+    CFDataRef address = CFDataCreate(NULL, (UInt8*)&addr, sizeof(struct sockaddr_in));
+    NSData *messageData = [[NSString stringWithFormat:@"mx=%.0f&my=%.0f&mz=%.0f&ax=%.1f&ay=%.1f&az=%.1f&ps=%.2f", datMx, datMy, datMz, datAx, datAy, datAz, datPs] dataUsingEncoding:NSUTF8StringEncoding];
+//    NSData *messageData = [@"SOME STRING VALUE" dataUsingEncoding:NSUTF8StringEncoding];
+    const void *bytes = [messageData bytes];
+    int length = [messageData length];
+    uint8_t *message = (uint8_t*)bytes;
+
+    CFDataRef data = CFDataCreate(NULL, (UInt8*)message, strlen(message));
+    CFSocketSendData(socket, address, data, 3);
+    CFRelease(socket);
+    CFRelease(address);
+    CFRelease(data);
+    NSLog(@"udp");
+}
 - (void)sendToDaruma {
     
     NSString *urlString = [NSString stringWithFormat:@"http://172.20.10.2:4567/set?mx=%.0f&my=%.0f&mz=%.0f&ax=%.1f&ay=%.1f&az=%.1f&ps=%.2f", datMx, datMy, datMz, datAx, datAy, datAz, datPs];
