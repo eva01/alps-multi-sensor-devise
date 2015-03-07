@@ -78,6 +78,9 @@
     // CoreBluetoothManagerの初期化
     manager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
     
+    // Startメッセージ送信
+    [self sendUdp: @"START"];
+
     // Bluetoothスキャン
     [self deviceScan];
 }
@@ -116,7 +119,13 @@
 // ------------------------------------------------------------------------
 - (void)applicationWillEnterForeground {
 
+    // Startメッセージ送信
+    [self sendUdp: @"START"];
+
     // 以下に記述
+    // Bluetoothスキャン
+    [self deviceScan];
+
 }
 
 // ------------------------------------------------------------------------
@@ -468,18 +477,6 @@
         return;
     }
     
-    // sleep
-    
-    // 現在時刻取得
-    NSDate *time = [NSDate date];
-    NSDateFormatter *fmt = [[NSDateFormatter alloc] init];
-    fmt.dateFormat = @"S";
-    NSString *miliSecond = [fmt stringFromDate:time];
-    NSLog(@"%@", miliSecond);
-    if (![miliSecond isEqual: @"0"]) {
-        return;
-    }
-
     
     // 設定したキャラクタリスティックと一致し、長さが１以上の場合
     if ([characteristic.UUID isEqual:[CBUUID UUIDWithString:SENSOR_CHARACTERISTIC_UUID]] && characteristic.value.length > 0) {
@@ -539,18 +536,18 @@
             datAy = (float)rawAy / 1024.0f;
             datAz = (float)rawAz / 1024.0f;
             
-            // 小数点第ニ位を四捨五入
-            datAx *= 10.0f;
-            datAy *= 10.0f;
-            datAz *= 10.0f;
+            // 小数点第三位を四捨五入
+            datAx *= 100.0f;
+            datAy *= 100.0f;
+            datAz *= 100.0f;
             
             datAx = roundf(datAx);
             datAy = roundf(datAy);
             datAz = roundf(datAz);
             
-            datAx /= 10.0f;
-            datAy /= 10.0f;
-            datAz /= 10.0f;
+            datAx /= 100.0f;
+            datAy /= 100.0f;
+            datAz /= 100.0f;
             
             //「-0.0」を「0.0」にする
             if (!datAx) datAx = 0;
@@ -637,10 +634,10 @@
         [self LogOutput];
 
         // darumaサーバへUDPで送信
-        [self udp];
+        [self sendUdp: [NSString stringWithFormat:@"|%d,%.0f,%.0f,%.0f,%.2f,%.2f,%.2f,%.2f|\n", datCnt, datMx, datMy, datMz, datAx, datAy, datAz, datPs]];
         
         // darumaサーバへ送信
-        [self sendToDaruma];
+        // [self sendToDaruma];
         
         // データ処理終了-----------------------------------------------------------------------------------
     }
@@ -709,19 +706,19 @@
     }
 }
 
-- (void)udp {
+- (void)sendUdp:(NSString *)text {
     CFSocketRef socket = CFSocketCreate(NULL, PF_INET, SOCK_DGRAM, IPPROTO_UDP, kCFSocketNoCallBack, NULL, NULL);
     
     struct sockaddr_in addr;
     addr.sin_len = sizeof(struct sockaddr_in);
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    addr.sin_port = htons(10000);
+    addr.sin_addr.s_addr = inet_addr("172.20.10.2");
+    addr.sin_port = htons(10001);
     CFDataRef address = CFDataCreate(NULL, (UInt8*)&addr, sizeof(struct sockaddr_in));
-    NSData *messageData = [[NSString stringWithFormat:@"mx=%.0f&my=%.0f&mz=%.0f&ax=%.1f&ay=%.1f&az=%.1f&ps=%.2f", datMx, datMy, datMz, datAx, datAy, datAz, datPs] dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *messageData = [text dataUsingEncoding:NSUTF8StringEncoding];
 //    NSData *messageData = [@"SOME STRING VALUE" dataUsingEncoding:NSUTF8StringEncoding];
     const void *bytes = [messageData bytes];
-    int length = [messageData length];
+    // int length = [messageData length];
     uint8_t *message = (uint8_t*)bytes;
 
     CFDataRef data = CFDataCreate(NULL, (UInt8*)message, strlen(message));
@@ -731,6 +728,7 @@
     CFRelease(data);
     NSLog(@"udp");
 }
+
 - (void)sendToDaruma {
     
     NSString *urlString = [NSString stringWithFormat:@"http://172.20.10.2:4567/set?mx=%.0f&my=%.0f&mz=%.0f&ax=%.1f&ay=%.1f&az=%.1f&ps=%.2f", datMx, datMy, datMz, datAx, datAy, datAz, datPs];
